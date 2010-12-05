@@ -3,7 +3,6 @@
 
 from calibre.web.feeds.news import BasicNewsRecipe
 from calibre.ebooks.BeautifulSoup import Tag, NavigableString
-import datetime
 
 class WikileaksCablegate(BasicNewsRecipe):
     title          = u'Wikileaks: Cablegate'
