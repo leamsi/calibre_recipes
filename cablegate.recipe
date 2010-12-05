@@ -10,20 +10,35 @@ class WikileaksCablegate(BasicNewsRecipe):
     publisher      = u'Wikileaks'
     category       = u'Leak, Foreign Policy, USA'
     description    = u"Today's cablegate leaks from wikileaks."
-    masthead_url   = 'http://213.251.145.96/static/gfx/WL_Hour_Glass_small.png'
     language       = 'en'
 
     remove_tags_before = dict(name='table', attrs={'class':'cable'})
     # ? I found that sometimes the <script> at the end won't get removed...
     remove_tags = [dict(name='link'), dict(name='code'), dict(name='script')]
     remove_javascript = True
-    HOST = 'http://213.251.145.96'
+
+    # Pick a host from the list below. Only one!
+    # (To choose, just remove the '#' in front and make sure that all the other
+    # HOSTs have a '#' in front of them.)
+    #
+
+    #HOST = 'http://mirrorleaks.org'
+    #HOST = 'http://46.59.1.2'
+    #HOST = 'http://213.251.145.96'
+    #HOST = 'http://wikileaks.teoriza.org'
+    HOST = 'http://wikileaks.piratenpartei.de'
+
     # How many days of leaks to download.
+    #
     DAYS = 2
+
+
+    def get_masthead_url(self):
+        return self.HOST + '/static/gfx/WL_Hour_Glass_small.png'
 
     def get_browser(self):
         br = BasicNewsRecipe.get_browser()
-        # Wikileaks seems to always send gzip content... even when not indicated as
+        # Some mirrors seems to always send gzip content... even when not indicated as
         # supported by the HTTP Headers. Thankfully this makes it transparent.
         br.set_handle_gzip(True)
         return br
@@ -65,12 +80,17 @@ class WikileaksCablegate(BasicNewsRecipe):
             soup = self.index_to_soup(url)
             aes = soup.find('div','paginator').findAll('a')
             
-            seen = {url: True}
-            additional_url = []
-            for a in aes:
-                if not self.HOST+a['href'] in seen:
-                    additional_url.append(self.HOST+a['href'])
-                    seen[self.HOST+a['href']] = True
+            total_pages = int(aes[-2].string)
+            # Get the URL for the additional pages.
+            # It is the same as the url for this page, but the digit after the
+            # '_' changes.
+            #
+            # We're using the path in the href instead of the full url to avoid
+            # problems if the mirror URL itself includes another '_'
+            #
+            # We also skip the first additional_url, since that would be the
+            # same as what we already got in url.
+            additional_url = [self.HOST+aes[0]['href'].split('_')[0]+'_%s.html'% x for x in xrange(total_pages)][1:]
 
             #print 'Additional:',additional_url
 
