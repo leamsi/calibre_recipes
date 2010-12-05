@@ -1,0 +1,113 @@
+#!/usr/bin/python
+# encoding: utf-8
+
+from calibre.web.feeds.news import BasicNewsRecipe
+from calibre.ebooks.BeautifulSoup import Tag, NavigableString
+import datetime
+
+class WikileaksCablegate(BasicNewsRecipe):
+    title          = u'Wikileaks: Cablegate'
+    publisher      = u'Wikileaks'
+    category       = u'Leak, Foreign Policy, USA'
+    description    = u"Today's cablegate leaks from wikileaks."
+    masthead_url   = 'http://213.251.145.96/static/gfx/WL_Hour_Glass_small.png'
+    language       = 'en'
+
+    remove_tags_before = dict(name='table', attrs={'class':'cable'})
+    # ? I found that sometimes the <script> at the end won't get removed...
+    remove_tags = [dict(name='link'), dict(name='code'), dict(name='script')]
+    remove_javascript = True
+    HOST = 'http://213.251.145.96'
+    # How many days of leaks to download.
+    DAYS = 2
+
+    def get_browser(self):
+        br = BasicNewsRecipe.get_browser()
+        # Wikileaks seems to always send gzip content... even when not indicated as
+        # supported by the HTTP Headers. Thankfully this makes it transparent.
+        br.set_handle_gzip(True)
+        return br
+
+
+    def cables_to_articles(self, cablessoup):
+        articles = []
+        for cable in cablessoup.findAll('tr'):
+            if cable.find('th') is not None:
+                continue
+            entries = cable.findAll('td')
+
+            cable_url  = self.HOST + entries[0].a['href']
+            cable_title= self.tag_to_string(entries[0])+ u': ' + self.tag_to_string(entries[1])
+            cable_date = self.tag_to_string(entries[2])
+            cable_desc = self.tag_to_string(entries[4]) + ' ' + self.tag_to_string(entries[5])
+            articles.append({'title' : cable_title.strip(),
+                'date' : cable_date.strip(),
+                'url' : cable_url.strip(),
+                'description' : cable_desc.strip()})
+            #print "Article:",cable_title,cable_date,cable_url
+        return articles
+
+
+    def parse_index(self):
+        cablegate = self.index_to_soup(self.HOST + '/cablegate.html')
+        cable_dates = []
+        # Get the last DAYS
+        for h3 in cablegate.findAll('h3'):
+            if h3.string and h3.string == 'Browse latest releases':
+                div = h3.nextSibling.nextSibling #Stupid meaningful whitespace...
+                aes = div.findAll('a')
+                for i in xrange(min(self.DAYS, len(aes))):
+                    cable_dates.append(self.HOST + aes[i]['href'])
+
+        articles = []
+
+        for url in cable_dates:
+            soup = self.index_to_soup(url)
+            aes = soup.find('div','paginator').findAll('a')
+            
+            seen = {url: True}
+            additional_url = []
+            for a in aes:
+                if not self.HOST+a['href'] in seen:
+                    additional_url.append(self.HOST+a['href'])
+                    seen[self.HOST+a['href']] = True
+
+            #print 'Additional:',additional_url
+
+            articles.extend(self.cables_to_articles(soup.find('table','cable')))
+            for url in additional_url:
+                page_soup = self.index_to_soup(url)
+                articles.extend(self.cables_to_articles(page_soup.find('table','cable')))
+
+        return [(u'Latest Cables', articles)]
+
+    def preprocess_html(self, soup):
+        head = soup.find('table','cable')
+        headers = head.tr
+        headers.extract()
+        headers_values = head.tr
+        headers_values.extract()
+        div = Tag(soup, 'div')
+        for i in xrange(len(headers)):
+            if self.tag_to_string(headers.contents[i]).strip() == '':
+                continue
+            h = Tag(soup, 'div')
+            hh= Tag(soup, 'span')
+            hh['style'] = 'font-weight: bold;'
+            hh.insert(0, NavigableString(self.tag_to_string(headers.contents[i]).strip()))
+            hv= Tag(soup, 'span')
+            hv['style'] = 'text-align: right;'
+            hv.insert(0, NavigableString(self.tag_to_string(headers_values.contents[i])))
+            h.insert(0, hh)
+            h.insert(1, hv)
+            div.insert(i, h)
+        head.replaceWith(div)
+
+        for a in soup.findAll('a', id=True, href=True):
+            a.replaceWith(Tag(soup, 'p'))
+
+        for pre in soup.findAll('pre'):
+            pre.name='p'
+
+        #print soup.prettify()
+        return soup
