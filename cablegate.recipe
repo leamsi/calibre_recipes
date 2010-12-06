@@ -25,7 +25,8 @@ class WikileaksCablegate(BasicNewsRecipe):
     #HOST = 'http://46.59.1.2'
     #HOST = 'http://213.251.145.96'
     #HOST = 'http://wikileaks.teoriza.org'
-    HOST = 'http://wikileaks.piratenpartei.de'
+    #HOST = 'http://wikileaks.piratenpartei.de'
+    HOST = 'http://wikileaks.ch'
 
     # How many days of leaks to download.
     #
