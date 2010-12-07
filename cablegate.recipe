@@ -23,10 +23,10 @@ class WikileaksCablegate(BasicNewsRecipe):
 
     #HOST = 'http://mirrorleaks.org'
     #HOST = 'http://46.59.1.2'
-    #HOST = 'http://213.251.145.96'
+    HOST = 'http://213.251.145.96'
     #HOST = 'http://wikileaks.teoriza.org'
     #HOST = 'http://wikileaks.piratenpartei.de'
-    HOST = 'http://wikileaks.ch'
+    #HOST = 'http://wikileaks.ch'
 
     # How many days of leaks to download.
     #
@@ -129,5 +129,32 @@ class WikileaksCablegate(BasicNewsRecipe):
         for pre in soup.findAll('pre'):
             pre.name='p'
 
-        #print soup.prettify()
+        title = False
+        ps = soup.findAll('p')
+        firstp = ps[0]
+        secondp = ps[1]
+        # The first two 'p' tags have header information which is better to
+        # read with the linebreaks.
+        head = firstp.contents[0]
+        head = head.split(u'&#x000A;')
+        firstp.contents[0].extract()
+        for i in xrange(len(head)):
+            firstp.insert(i*2, head[i])
+            firstp.insert(i*2+1, Tag(soup, 'br'))
+        head = secondp.contents[0]
+        head = head.split(u'&#x000A;')
+        secondp.contents[0].extract()
+        for i in xrange(len(head)):
+            secondp.insert(i*2, head[i])
+            secondp.insert(i*2+1, Tag(soup, 'br'))
+            if not title and head[i].startswith(u'SUBJECT: '):
+                title=head[i].replace(u'SUBJECT: ',u'')
+        
+        if title:
+            div = soup.find('div','main')
+            h3 = Tag(soup,'h3')
+            h3.append(title)
+            div.insert(0, h3)
+
+        print soup.prettify()
         return soup
