@@ -101,6 +101,54 @@ class WikileaksCablegate(BasicNewsRecipe):
 
         return [(u'Latest Cables', articles)]
 
+    def preprocess_split_paragraphs(self, tag, soup, breakline=False):
+        newsoup = Tag(soup, 'div')
+        lasts = [u""]
+        for elem in tag:
+            if isinstance(elem, NavigableString):
+                s = unicode(elem)
+                lasts = s.split(u'&#x000A;&#x000A;')
+            else: #Assuming is a node... I don't think it can be anything else.
+                #print len(lasts)
+                for s in lasts:
+                    #print 'S:',s
+                    p = Tag(soup, 'p')
+                    if not breakline or s.find('&#x000A;') == -1:
+                        p.append(s)
+                    else:
+                        lines = s.split(u'&#x000A;')
+                        for l in lines:
+                            p.append(l)
+                            p.append(Tag(soup, 'br'))
+                    if not self.tag_to_string(p).strip() == u'':
+                        newsoup.append(p)
+                    #print p
+                lasts = None
+        if lasts:
+            #print len(lasts)
+            for s in lasts:
+                p = Tag(soup, 'p')
+                if not breakline or s.find('&#x000A;') == -1:
+                    p.append(s)
+                else:
+                    lines = s.split(u'&#x000A;')
+                    for l in lines:
+                        p.append(l)
+                        p.append(Tag(soup, 'br'))
+                newsoup.append(p)
+                #print p
+        return newsoup
+                
+                
+    def populate_article_metadata(self, article, soup, first):
+        title = article.title
+        if title:
+            div = soup.find('div','main')
+            h3 = Tag(soup,'h3')
+            h3.append(title)
+            div.insert(0, h3)
+                
+
     def preprocess_html(self, soup):
         head = soup.find('table','cable')
         headers = head.tr
@@ -123,38 +171,30 @@ class WikileaksCablegate(BasicNewsRecipe):
             div.insert(i, h)
         head.replaceWith(div)
 
-        for a in soup.findAll('a', id=True, href=True):
-            a.replaceWith(Tag(soup, 'p'))
+        # Get rid of the links in the cable tags
+        for alink in soup.findAll(lambda tag: tag.name == 'a' and not tag.has_key('id')):
+            tstr = unicode(alink.string)
+            alink.replaceWith(tstr)        
 
-        for pre in soup.findAll('pre'):
-            pre.name='p'
+        # Try to get usable linebreaks and paragraphs out of the
+        # barely-formatted text.
+        # The main problem is that keeping the exact same linebreaks doesn't
+        # make sense for a ebook reader, since some lines will look funny, and
+        # the whole point of being able to change the font size is that the 
+        # flow of text will be reshaped correctly (and that won't happen if we
+        # force the same linebreaks).
+        start = 1
+        pres = soup.findAll('pre')
+        pres[0].replaceWith(self.preprocess_split_paragraphs(pres[0], soup, True))
+        if len(pres) > 2:
+            # Some cables only have 2 'pre' tags, the second contains the second
+            # header AND the content, we don't want to mess with the linebreaks
+            # in those.
+            pres[1].replaceWith(self.preprocess_split_paragraphs(pres[1], soup, True))
+            start = 2
+        for pre in pres[start:]:
+            pre.replaceWith(self.preprocess_split_paragraphs(pre, soup))
 
-        title = False
-        ps = soup.findAll('p')
-        firstp = ps[0]
-        secondp = ps[1]
-        # The first two 'p' tags have header information which is better to
-        # read with the linebreaks.
-        head = firstp.contents[0]
-        head = head.split(u'&#x000A;')
-        firstp.contents[0].extract()
-        for i in xrange(len(head)):
-            firstp.insert(i*2, head[i])
-            firstp.insert(i*2+1, Tag(soup, 'br'))
-        head = secondp.contents[0]
-        head = head.split(u'&#x000A;')
-        secondp.contents[0].extract()
-        for i in xrange(len(head)):
-            secondp.insert(i*2, head[i])
-            secondp.insert(i*2+1, Tag(soup, 'br'))
-            if not title and head[i].startswith(u'SUBJECT: '):
-                title=head[i].replace(u'SUBJECT: ',u'')
-        
-        if title:
-            div = soup.find('div','main')
-            h3 = Tag(soup,'h3')
-            h3.append(title)
-            div.insert(0, h3)
+        #print soup.prettify()
 
-        print soup.prettify()
         return soup
