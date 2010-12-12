@@ -112,7 +112,6 @@ class WikileaksCablegate(BasicNewsRecipe):
         """Returns true if 'string' should be on a line of its own when appended into 'soup'"""
         if underline_re.match(string) != None:
             return True
-            return True
         if len(string) < self.BREAKLINE_LENGTH:
             if len(soup.contents) > 0 and isinstance(soup.contents[-1], NavigableString) and len(soup.contents[-1].string) > 0:
                 s = soup.contents[-1].string.rstrip()
