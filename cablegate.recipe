@@ -1,8 +1,13 @@
 #!/usr/bin/python
-# encoding: utf-8
+# vim:fileencoding=utf-8
 
 from calibre.web.feeds.news import BasicNewsRecipe
 from calibre.ebooks.BeautifulSoup import Tag, NavigableString
+
+import re
+
+# Matches two or more '-' caracters alone in the line.
+underline_re = re.compile(ur'^-[-\s]+$')
 
 class WikileaksCablegate(BasicNewsRecipe):
     title          = u'Wikileaks: Cablegate'
@@ -20,18 +25,20 @@ class WikileaksCablegate(BasicNewsRecipe):
     # (To choose, just remove the '#' in front and make sure that all the other
     # HOSTs have a '#' in front of them.)
     #
-
-    #HOST = 'http://mirrorleaks.org'
-    #HOST = 'http://46.59.1.2'
-    HOST = 'http://213.251.145.96'
-    #HOST = 'http://wikileaks.teoriza.org'
-    #HOST = 'http://wikileaks.piratenpartei.de'
+    #HOST = 'http://cablegate.r3blog.nl'
+    HOST = 'http://wl.opsec.eu'
+    #HOST = 'http://87.106.58.253'
+    #HOST = 'http://cablegate.askedo.de'
     #HOST = 'http://wikileaks.ch'
 
     # How many days of leaks to download.
     #
     DAYS = 2
 
+    # How many chars must a line have to stop considering it as a header or
+    # subtitle.
+    #
+    BREAKLINE_LENGTH = 50
 
     def get_masthead_url(self):
         return self.HOST + '/static/gfx/WL_Hour_Glass_small.png'
@@ -52,7 +59,7 @@ class WikileaksCablegate(BasicNewsRecipe):
             entries = cable.findAll('td')
 
             cable_url  = self.HOST + entries[0].a['href']
-            cable_title= self.tag_to_string(entries[0])+ u': ' + self.tag_to_string(entries[1])
+            cable_title= self.tag_to_string(entries[1])
             cable_date = self.tag_to_string(entries[2])
             cable_desc = self.tag_to_string(entries[4]) + ' ' + self.tag_to_string(entries[5])
             articles.append({'title' : cable_title.strip(),
@@ -101,42 +108,89 @@ class WikileaksCablegate(BasicNewsRecipe):
 
         return [(u'Latest Cables', articles)]
 
-    def preprocess_split_paragraphs(self, tag, soup, breakline=False):
+    def should_br(self, string, soup):
+        """Returns true if 'string' should be on a line of its own when appended into 'soup'"""
+        if underline_re.match(string) != None:
+            return True
+            return True
+        if len(string) < self.BREAKLINE_LENGTH:
+            if len(soup.contents) > 0 and isinstance(soup.contents[-1], NavigableString) and len(soup.contents[-1].string) > 0:
+                s = soup.contents[-1].string.rstrip()
+                if s[-1] == u'.':
+                    return True
+                if string.isupper() and not s.isupper():
+                    # Sudden change of case, it might be the page count which
+                    # sometimes appears in the middle of the cable or a tittle.
+                    return True
+                return False
+            return True
+        return False
+
+    def starts_nl(self, soup):
+        """Returns true if the next appended soup element would start in a new line"""
+        if len(soup.contents) == 0:
+            # We'll asume that it's always the case... it is not for certain tags
+            # (inline ones, like 'span', or 'i', 'b' and so on).
+            return True
+        if isinstance(soup.contents[-1], Tag) and (soup.contents[-1].name == 'p' or soup.contents[-1].name == 'br'):
+            return True
+        return False
+
+    def preprocess_split_paragraphs(self, tag, soup, alwaysbr=False):
         newsoup = Tag(soup, 'div')
-        lasts = [u""]
+        # reached_pars is set to true whenever we find a <a href=... id=...> tag
+        # which encloses the start and end of paragraphs.
+        reached_pars = False
+        was_str = False
         for elem in tag:
             if isinstance(elem, NavigableString):
                 s = unicode(elem)
-                lasts = s.split(u'&#x000A;&#x000A;')
-            else: #Assuming is a node... I don't think it can be anything else.
-                #print len(lasts)
-                for s in lasts:
+                for s in (t.strip() for t in s.split(u'&#x000A;&#x000A;')):
                     #print 'S:',s
-                    p = Tag(soup, 'p')
-                    if not breakline or s.find('&#x000A;') == -1:
-                        p.append(s)
+                    p = None
+                    # This fixes a problem caused by the way .replaceWith works
+                    # with navigable strings. This was causing spurious
+                    # paragraphs to be inserted in the tags.
+                    if not was_str:
+                        p = Tag(soup, 'p')
                     else:
-                        lines = s.split(u'&#x000A;')
-                        for l in lines:
-                            p.append(l)
-                            p.append(Tag(soup, 'br'))
-                    if not self.tag_to_string(p).strip() == u'':
+                        p = newsoup.contents[-1]
+                    if s.find('&#x000A;') == -1:
+                        # Add a space to compensate for the strip() (which
+                        # might be merging words together).
+                        p.append(s+u' ')
+                    else:
+                        for l in (t.strip() for t in s.split(u'&#x000A;')):
+                            if len(l) == 0:
+                                # Avoid useless 'br's
+                                continue
+                            if alwaysbr or not reached_pars:
+                                # Always insert breaklines. Used for headers.
+                                p.append(l)
+                                p.append(Tag(soup, 'br'))
+                            elif self.should_br(l, p):
+                                # Try to guess if a breakline should be
+                                # included. Used for headers within the cable
+                                # and subtitles.
+                                if not self.starts_nl(p):
+                                    p.append(Tag(soup, 'br'))
+                                p.append(l)
+                                p.append(Tag(soup, 'br'))
+                            else:
+                                # No breakline required, probably within a
+                                # paragraph.
+                                # Add a space to compensate for the strip (which
+                                # might be merging word together).
+                                p.append(l+u' ')
+                    if was_str:
+                        was_str = False
+                    elif not self.tag_to_string(p).strip() == u'':
                         newsoup.append(p)
-                    #print p
-                lasts = None
-        if lasts:
-            #print len(lasts)
-            for s in lasts:
-                p = Tag(soup, 'p')
-                if not breakline or s.find('&#x000A;') == -1:
-                    p.append(s)
-                else:
-                    lines = s.split(u'&#x000A;')
-                    for l in lines:
-                        p.append(l)
-                        p.append(Tag(soup, 'br'))
-                newsoup.append(p)
-                #print p
+                was_str = True
+            else: #Assuming is a node... I don't think it can be anything else.
+                if elem.name == 'a' and elem.has_key('id'):
+                    reached_pars = True    
+                was_str = False
         return newsoup
                 
                 
@@ -162,7 +216,7 @@ class WikileaksCablegate(BasicNewsRecipe):
             h = Tag(soup, 'div')
             hh= Tag(soup, 'span')
             hh['style'] = 'font-weight: bold;'
-            hh.insert(0, NavigableString(self.tag_to_string(headers.contents[i]).strip()))
+            hh.insert(0, NavigableString(self.tag_to_string(headers.contents[i]).strip()+u':'))
             hv= Tag(soup, 'span')
             hv['style'] = 'text-align: right;'
             hv.insert(0, NavigableString(self.tag_to_string(headers_values.contents[i])))
@@ -173,7 +227,7 @@ class WikileaksCablegate(BasicNewsRecipe):
 
         # Get rid of the links in the cable tags
         for alink in soup.findAll(lambda tag: tag.name == 'a' and not tag.has_key('id')):
-            tstr = unicode(alink.string)
+            tstr = alink.string
             alink.replaceWith(tstr)        
 
         # Try to get usable linebreaks and paragraphs out of the
@@ -188,7 +242,7 @@ class WikileaksCablegate(BasicNewsRecipe):
         pres[0].replaceWith(self.preprocess_split_paragraphs(pres[0], soup, True))
         if len(pres) > 2:
             # Some cables only have 2 'pre' tags, the second contains the second
-            # header AND the content, we don't want to mess with the linebreaks
+            # header AND the content, we don't want to mess the linebreaks
             # in those.
             pres[1].replaceWith(self.preprocess_split_paragraphs(pres[1], soup, True))
             start = 2
