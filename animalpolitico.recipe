@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # encoding: utf-8
 
+__license__ = 'WTFPL'
+
 from calibre.web.feeds.news import BasicNewsRecipe
 
 class AdvancedUserRecipe1290663986(BasicNewsRecipe):
