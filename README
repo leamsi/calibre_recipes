@@ -1,4 +1,4 @@
-Animal Politico Recipe for Calibre
+Some recipes for Calibre
 ---------------------------------------
 
 Released under:
@@ -27,4 +27,5 @@ To use:
 2. Click on the arrow at the side of the "Fetch news" button
 3. Select "Add custom news source"
 4. Click "Load recipe from file"
-5. Do whatever the fuck you want to with it.
+5. Select and open the .recipe you want
+6. Do whatever the fuck you want to with it.
