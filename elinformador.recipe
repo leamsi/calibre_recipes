@@ -1,0 +1,29 @@
+#!/usr/bin/python
+
+class AdvancedUserRecipe1292205505(BasicNewsRecipe):
+    title          = u'El Informador'
+    oldest_article = 1
+    max_articles_per_feed = 100
+
+    feeds          = [(u'Jalisco', u'http://rss.informador.com.mx/informador-jalisco?format=xml'), 
+        (u'M\xe9xico', u'http://rss.informador.com.mx/informador-mexico?format=xml'), 
+        (u'Internacional', u'http://rss.informador.com.mx/informador-internacional?format=xml'), 
+        (u'Econom\xeda', u'http://rss.informador.com.mx/informador-economia?format=xml'),
+        (u'Am\xe9rica Latina', u'http://feeds.informador.com.mx/14/america-latina.rss'), 
+        (u'Rotonda', u'http://feeds.informador.com.mx/7381/rotonda.rss'),]
+        (u'Tecnolog\xeda', u'http://rss.informador.com.mx/informador-tecnologia?format=xml'),
+        (u'Entretenimiento', u'http://rss.informador.com.mx/informador-entretenimiento?format=xml'), 
+        (u'Deportes', u'http://rss.informador.com.mx/informador-deportes?format=xml'), 
+        (u'Cine', u'http://feeds.informador.com.mx/33/cine.rss'), 
+        (u'M\xfasica', u'http://feeds.informador.com.mx/32/musica.rss'),
+        (u'Tapat\xedo', u'http://feeds.informador.com.mx/321/tapatio.rss'),
+        (u'Pasaporte', u'http://feeds.informador.com.mx/2239/pasaporte.rss')]
+    remove_tags    = [dict(name='p', attrs={'class': 'logo'}),
+        dict(name='div', attrs={'id':'url'}),
+        dict(name='script')]
+    remove_javascript=True
+
+    def print_version(self, url):
+        artid = url.split('/')[5]
+        return 'http://www.informador.com.mx/impresion/'+artid
+

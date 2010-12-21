@@ -1,0 +1,53 @@
+#!/usr/bin/python
+
+
+class OcnusNews(BasicNewsRecipe):
+    title          = u'Ocnus (Latest feed)'
+    description    = u'News before its news'
+    category       = u'News, International, Intelligence'
+
+    HOST = 'http://www.ocnus.net/'
+
+    feeds          = [('Latest', 'http://www.ocnus.net/artman2/publish/rss.xml')]
+    oldest_article = 3
+    
+    def print_version(self, url):
+        return url.replace('.shtml','_printer.shtml')
+
+    #def parse_index(self):
+    #    index_soup = self.index_to_soup(self.HOST)
+    #    latest = index_soup.find('td', 'bg_nav_right')
+    #    
+    #    articles = []
+    #    last_section_name = None
+    #    last_section_articles = []
+    #    for span in latest.findAll('span', attrs={'class':True}):
+    #        if span['class'] == 'nav_right_category_name':
+    #            if last_section_name:
+    #                articles.append( (last_section_name, last_section_articles) )
+    #            last_section_name = span.string
+    #            last_section_articles = []
+    #        elif span['class'] == 'nav_right_headlines':
+    #            article = {
+    #                'title' : span.a.string.strip(),
+    #                'url' : span.a['href'],
+    #                'description' : '',
+    #                'date' : '' }
+    #            last_section_articles.append(article)
+    #        
+    #    return articles
+
+    def preprocess_html(self, soup):
+        span = soup.find('span', 'article_text')
+        td = span.parent
+        table = td.parent.parent
+        table.replaceWith(td)
+        td.name='div'
+        span = td.parent
+        table = soup.body.table
+        table.replaceWith(span)
+
+
+        print soup.prettify()
+
+        return soup
