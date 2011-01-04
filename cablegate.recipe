@@ -119,18 +119,27 @@ class WikileaksCablegate(BasicNewsRecipe):
     def should_br(self, string, soup):
         """Returns true if 'string' should be on a line of its own when appended into 'soup'"""
         if underline_re.match(string) != None:
+            print string, "should br because its separator."
             return True
         if len(string) < self.BREAKLINE_LENGTH:
             if len(soup.contents) > 0 and isinstance(soup.contents[-1], NavigableString) and len(soup.contents[-1].string) > 0:
                 s = soup.contents[-1].string.rstrip()
                 if s[-1] == u'.':
+                    print string, "should br because it's lest than",self.BREAKLINE_LENGTH,"and last string ended with a dot."
                     return True
                 if string.isupper() and not s.isupper():
                     # Sudden change of case, it might be the page count which
                     # sometimes appears in the middle of the cable or a tittle.
+                    print string, "should br because it's less than",self.BREAKLINE_LENGTH,"and it's all uppercase and last string wasnt ('%s')" % s
                     return True
                 return False
-            return True
+            #print string, "should br because soup is empty or last instance wasn't a string or it was an empty string"
+            #print "what was it? len:", len(soup.contents)
+            #if len(soup.contents) > 0:
+            #    print "what was it? type:", type(soup.contents[-1])
+            #    if isinstance(soup.contents[-1], NavigableString):
+            #        print "what was it? string-len:",len(soup.contents[-1].string),"string:",soup.contents[-1].string
+            #return True
         return False
 
     def starts_nl(self, soup):
