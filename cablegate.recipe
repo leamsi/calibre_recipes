@@ -30,10 +30,10 @@ class WikileaksCablegate(BasicNewsRecipe):
     # HOSTs have a '#' in front of them.)
     #
     #HOST = 'http://cablegate.r3blog.nl'
-    HOST = 'http://wl.opsec.eu'
+    #HOST = 'http://wl.opsec.eu'
     #HOST = 'http://87.106.58.253'
     #HOST = 'http://cablegate.askedo.de'
-    #HOST = 'http://wikileaks.ch'
+    HOST = 'http://wikileaks.ch'
 
     # How many days of leaks to download.
     #
@@ -81,16 +81,25 @@ class WikileaksCablegate(BasicNewsRecipe):
         # Get the last DAYS
         for h3 in cablegate.findAll('h3'):
             if h3.string and h3.string == 'Browse latest releases':
-                div = h3.nextSibling.nextSibling #Stupid meaningful whitespace...
-                aes = div.findAll('a')
+                #look for divs
+                sibling = h3.nextSibling
+                aes = []
+                while isinstance(sibling, NavigableString) or sibling.name != 'h3':
+                    if isinstance(sibling, Tag) and sibling.name == 'div' and sibling['class'] == 'sort':
+                        aes.extend(sibling.findAll('a'))
+                    sibling = sibling.nextSibling
+                aes.reverse()
+                #print aes
                 for i in xrange(min(self.DAYS, len(aes))):
                     cable_dates.append(aes[i].string)
                     cable_urls.append(self.HOST + aes[i]['href'])
+                break
 
 
         feeds = []
         for url,date in zip(cable_urls, cable_dates):
             articles = []
+            print url
             soup = self.index_to_soup(url)
             aes = soup.find('div','paginator').findAll('a')
             
